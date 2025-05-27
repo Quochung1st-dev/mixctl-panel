@@ -10,7 +10,8 @@ fi
 echo "Installing dependencies..."
 if [ -f /etc/debian_version ]; then
     apt update
-    apt install -y nginx redis-server luarocks libnginx-mod-http-lua libnginx-mod-http-redis
+    apt upgrade -y # Add upgrade to ensure dependencies are met
+    apt install -y nginx redis-server luarocks libnginx-mod-http-lua
     luarocks install lua-resty-http
     luarocks install lua-resty-redis
 elif [ -f /etc/redhat-release ]; then
@@ -24,6 +25,7 @@ fi
 echo "Creating directory structure..."
 mkdir -p /etc/mix-cdn/{sites,ssl,cache}
 mkdir -p /var/cache/mix/{nginx,redis}
+mkdir -p /usr/local/lib/lua/ # Create Lua directory before copying
 
 # Copy config files
 echo "Copying configuration files..."
