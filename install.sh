@@ -9,12 +9,47 @@ fi
 # Install dependencies
 echo "Installing dependencies..."
 if [ -f /etc/debian_version ]; then
+    # Check and remove existing packages
+    echo "Checking for existing Nginx and Redis installations..."
+    if dpkg -s nginx &> /dev/null; then
+        echo "Removing existing Nginx..."
+        apt purge -y nginx nginx-common libnginx-mod-http-lua # Add common and lua module for thorough removal
+    fi
+    if dpkg -s redis-server &> /dev/null; then
+        echo "Removing existing Redis..."
+        apt purge -y redis-server
+    fi
+    if dpkg -s luarocks &> /dev/null; then
+        echo "Removing existing Luarocks..."
+        apt purge -y luarocks
+    fi
+
+    # Add official Nginx repository
+    echo "Adding official Nginx repository..."
+    curl -fsSL https://nginx.org/keys/nginx_signing.key | apt-key add -
+    echo "deb http://nginx.org/packages/ubuntu/ $(lsb_release -cs) nginx" | tee /etc/apt/sources.list.d/nginx.list
+    
     apt update
     apt upgrade -y # Add upgrade to ensure dependencies are met
     apt install -y nginx redis-server luarocks libnginx-mod-http-lua
     luarocks install lua-resty-http
     luarocks install lua-resty-redis
 elif [ -f /etc/redhat-release ]; then
+    # Check and remove existing packages
+    echo "Checking for existing Nginx and Redis installations..."
+    if rpm -q nginx &> /dev/null; then
+        echo "Removing existing Nginx..."
+        yum remove -y nginx
+    fi
+    if rpm -q redis &> /dev/null; then
+        echo "Removing existing Redis..."
+        yum remove -y redis
+    fi
+     if rpm -q luarocks &> /dev/null; then
+        echo "Removing existing Luarocks..."
+        yum remove -y luarocks
+    fi
+    
     yum install -y epel-release
     yum install -y nginx redis luarocks
     luarocks install lua-resty-http
