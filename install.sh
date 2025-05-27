@@ -26,6 +26,8 @@ echo "Creating directory structure..."
 mkdir -p /etc/mix-cdn/{sites,ssl,cache}
 mkdir -p /var/cache/mix/{nginx,redis}
 mkdir -p /usr/local/lib/lua/ # Create Lua directory before copying
+mkdir -p /etc/nginx/ # Ensure Nginx config directory exists
+mkdir -p /etc/redis/ # Ensure Redis config directory exists
 
 # Copy config files
 echo "Copying configuration files..."
