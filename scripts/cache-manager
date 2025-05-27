@@ -1,0 +1,78 @@
+#!/bin/bash
+
+CACHE_DIR="/var/cache/mix"
+REDIS_HOST="127.0.0.1"
+REDIS_PORT=6379
+
+purge_single() {
+    read -p "Enter domain name: " domain
+    read -p "Enter path to purge (e.g. /css/style.css): " path
+    
+    if [ -z "$path" ]; then
+        echo "Purging entire domain cache..."
+        curl -X PURGE "http://${domain}/purge/"
+    else
+        echo "Purging specific path..."
+        curl -X PURGE "http://${domain}/purge${path}"
+    fi
+    
+    # Also purge Redis cache
+    redis-cli --scan --pattern "${domain}*" | xargs redis-cli del
+    
+    echo "Cache purged successfully for ${domain}${path}"
+    read -p "Press [Enter] to continue..."
+}
+
+purge_all() {
+    echo "Purging all caches..."
+    
+    # Purge Nginx cache
+    rm -rf "${CACHE_DIR}/nginx/*"
+    
+    # Purge Redis cache
+    redis-cli FLUSHALL
+    
+    echo "All caches have been purged!"
+    read -p "Press [Enter] to continue..."
+}
+
+cache_stats() {
+    echo "Cache Statistics"
+    echo "---------------"
+    
+    # Nginx cache stats
+    echo -n "Nginx cache size: "
+    du -sh "${CACHE_DIR}/nginx"
+    
+    # Redis cache stats
+    echo -e "\nRedis cache stats:"
+    redis-cli info memory | grep -E "used_memory|maxmemory"
+    redis-cli info keyspace
+    
+    echo ""
+    read -p "Press [Enter] to continue..."
+}
+
+show_menu() {
+    echo ""
+    echo "Cache Management"
+    echo "---------------"
+    echo "1. Purge cache for specific domain"
+    echo "2. Purge all caches"
+    echo "3. Show cache statistics"
+    echo "0. Back to main menu"
+    echo ""
+
+    read -p "Enter your choice [0-3]: " choice
+    case $choice in
+        1) purge_single ;;
+        2) purge_all ;;
+        3) cache_stats ;;
+        0) return ;;
+        *) echo "Invalid option!" ;;
+    esac
+
+    show_menu
+}
+
+show_menu

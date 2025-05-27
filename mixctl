@@ -1,0 +1,57 @@
+#!/bin/bash
+
+VERSION="1.0.0"
+CONFIG_DIR="/etc/mix-cdn"
+CACHE_DIR="/var/cache/mix"
+
+show_menu() {
+    echo ""
+    echo "┌──────────────────────────────────────────┐"
+    echo "│   MIX CDN Management v${VERSION}              │"
+    echo "├──────────────────────────────────────────┤"
+    echo "│  1. Site Management                     │"
+    echo "│  2. SSL Management                      │"
+    echo "│  3. Cache Management                    │"
+    echo "│  4. System Status                       │"
+    echo "│  5. Update Configuration                │"
+    echo "│  0. Exit                                │"
+    echo "└──────────────────────────────────────────┘"
+    echo ""
+
+    read -p "Enter your choice [0-5]: " choice
+    case $choice in
+        1) site-manager ;;
+        2) ssl-manager ;;
+        3) cache-manager ;;
+        4) system-status ;;
+        5) update-config ;;
+        0) exit 0 ;;
+        *) echo "Invalid option!" ;;
+    esac
+
+    show_menu
+}
+
+system-status() {
+    echo ""
+    echo "System Status:"
+    echo "--------------"
+    systemctl status nginx | grep "Active:"
+    systemctl status redis | grep "Active:"
+    echo ""
+    echo "Disk Usage:"
+    echo "-----------"
+    df -h / /var/cache/mix
+    echo ""
+    read -p "Press [Enter] to continue..."
+}
+
+update-config() {
+    echo "Reloading configurations..."
+    nginx -t && systemctl reload nginx
+    systemctl restart redis
+    echo "Configurations updated successfully!"
+    read -p "Press [Enter] to continue..."
+}
+
+show_menu

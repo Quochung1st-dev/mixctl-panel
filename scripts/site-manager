@@ -1,0 +1,70 @@
+#!/bin/bash
+
+SITE_DIR="/etc/mix-cdn/sites"
+SSL_DIR="/etc/mix-cdn/ssl"
+TEMPLATE_FILE="/etc/nginx/templates/site.conf.template"
+
+add_site() {
+    read -p "Enter domain name (e.g., example.com): " domain
+    read -p "Enter origin server (e.g., 1.2.3.4:80): " origin
+
+    # Create site directory
+    mkdir -p "$SITE_DIR/$domain"
+    
+    # Generate config from template
+    sed -e "s/{{DOMAIN}}/$domain/g" \
+        -e "s/{{ORIGIN}}/$origin/g" \
+        "$TEMPLATE_FILE" > "/etc/nginx/sites/$domain.conf"
+    
+    # Create SSL directory
+    mkdir -p "$SSL_DIR/$domain"
+    
+    echo "Site $domain added successfully!"
+    nginx -t && systemctl reload nginx
+}
+
+remove_site() {
+    read -p "Enter domain name to remove: " domain
+    
+    if [ -f "/etc/nginx/sites/$domain.conf" ]; then
+        rm -f "/etc/nginx/sites/$domain.conf"
+        rm -rf "$SITE_DIR/$domain"
+        rm -rf "$SSL_DIR/$domain"
+        echo "Site $domain removed successfully!"
+        nginx -t && systemctl reload nginx
+    else
+        echo "Site $domain not found!"
+    fi
+}
+
+list_sites() {
+    echo "Configured sites:"
+    echo "-----------------"
+    ls /etc/nginx/sites/*.conf | awk -F/ '{print $NF}' | sed 's/.conf$//'
+    echo ""
+    read -p "Press [Enter] to continue..."
+}
+
+show_menu() {
+    echo ""
+    echo "Site Management"
+    echo "---------------"
+    echo "1. Add new site"
+    echo "2. Remove site"
+    echo "3. List sites"
+    echo "0. Back to main menu"
+    echo ""
+
+    read -p "Enter your choice [0-3]: " choice
+    case $choice in
+        1) add_site ;;
+        2) remove_site ;;
+        3) list_sites ;;
+        0) return ;;
+        *) echo "Invalid option!" ;;
+    esac
+
+    show_menu
+}
+
+show_menu

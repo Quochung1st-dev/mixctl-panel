@@ -1,0 +1,117 @@
+#!/bin/bash
+
+SSL_DIR="/etc/mix-cdn/ssl"
+ACME_DIR="/etc/mix-cdn/ssl/.acme-challenge"
+
+install_certbot() {
+    echo "Installing Certbot..."
+    if [ -f /etc/debian_version ]; then
+        apt install -y certbot python3-certbot-nginx
+    elif [ -f /etc/redhat-release ]; then
+        yum install -y certbot python3-certbot-nginx
+    fi
+    echo "Certbot installed successfully!"
+}
+
+add_ssl() {
+    read -p "Enter domain name: " domain
+    
+    if [ ! -f "/etc/nginx/sites/${domain}.conf" ]; then
+        echo "Site configuration for ${domain} not found!"
+        return 1
+    fi
+    
+    # Create challenge directory
+    mkdir -p "${ACME_DIR}"
+    chown -R nginx:nginx "${ACME_DIR}"
+    
+    # Temporary server block for ACME challenge
+    echo "server {
+        listen 80;
+        server_name ${domain};
+        location /.well-known/acme-challenge/ {
+            root ${ACME_DIR};
+        }
+        location / {
+            return 301 https://\$host\$request_uri;
+        }
+    }" > "/etc/nginx/conf.d/acme-${domain}.conf"
+    
+    systemctl reload nginx
+    
+    # Obtain certificate
+    certbot certonly --webroot -w "${ACME_DIR}" -d "${domain}" -d "www.${domain}" \
+        --non-interactive --agree-tos --email admin@${domain}
+    
+    # Remove temporary config
+    rm -f "/etc/nginx/conf.d/acme-${domain}.conf"
+    
+    # Create SSL directory for domain
+    mkdir -p "${SSL_DIR}/${domain}"
+    
+    # Create symlinks to certificates
+    ln -sf "/etc/letsencrypt/live/${domain}/fullchain.pem" "${SSL_DIR}/${domain}/fullchain.pem"
+    ln -sf "/etc/letsencrypt/live/${domain}/privkey.pem" "${SSL_DIR}/${domain}/privkey.pem"
+    
+    # Update nginx config
+    sed -i "s/listen 80;/listen 443 ssl;/" "/etc/nginx/sites/${domain}.conf"
+    sed -i "/server_name/a \    ssl_certificate ${SSL_DIR}/${domain}/fullchain.pem;\n    ssl_certificate_key ${SSL_DIR}/${domain}/privkey.pem;" "/etc/nginx/sites/${domain}.conf"
+    
+    systemctl reload nginx
+    echo "SSL certificate for ${domain} installed successfully!"
+}
+
+renew_ssl() {
+    echo "Renewing SSL certificates..."
+    certbot renew --quiet
+    
+    # Update symlinks in case certificates were renewed
+    for domain in $(ls "${SSL_DIR}"); do
+        if [ -f "/etc/letsencrypt/live/${domain}/fullchain.pem" ]; then
+            ln -sf "/etc/letsencrypt/live/${domain}/fullchain.pem" "${SSL_DIR}/${domain}/fullchain.pem"
+            ln -sf "/etc/letsencrypt/live/${domain}/privkey.pem" "${SSL_DIR}/${domain}/privkey.pem"
+        fi
+    done
+    
+    systemctl reload nginx
+    echo "SSL certificates renewed successfully!"
+}
+
+show_ssl() {
+    echo "Current SSL Certificates:"
+    echo "------------------------"
+    for domain in $(ls "${SSL_DIR}"); do
+        if [ -f "${SSL_DIR}/${domain}/fullchain.pem" ]; then
+            expiry_date=$(openssl x509 -enddate -noout -in "${SSL_DIR}/${domain}/fullchain.pem" | cut -d= -f2)
+            echo "${domain} - Expires: ${expiry_date}"
+        fi
+    done
+    echo ""
+    read -p "Press [Enter] to continue..."
+}
+
+show_menu() {
+    echo ""
+    echo "SSL Certificate Management"
+    echo "-------------------------"
+    echo "1. Install Certbot"
+    echo "2. Add SSL for domain"
+    echo "3. Renew all SSL certificates"
+    echo "4. Show SSL certificates"
+    echo "0. Back to main menu"
+    echo ""
+
+    read -p "Enter your choice [0-4]: " choice
+    case $choice in
+        1) install_certbot ;;
+        2) add_ssl ;;
+        3) renew_ssl ;;
+        4) show_ssl ;;
+        0) return ;;
+        *) echo "Invalid option!" ;;
+    esac
+
+    show_menu
+}
+
+show_menu
