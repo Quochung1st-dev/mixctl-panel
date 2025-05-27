@@ -45,12 +45,12 @@ chmod +x /usr/local/bin/{site-manager,ssl-manager,cache-manager}
 
 # Create necessary directories
 mkdir -p /etc/mix-cdn/ssl/.acme-challenge
-chown -R nginx:nginx /etc/mix-cdn/ssl
+chown -R www-data:www-data /etc/mix-cdn/ssl # Changed user/group to www-data
 
 # Enable services
 echo "Enabling services..."
-systemctl enable nginx redis
-systemctl restart nginx redis
+systemctl enable nginx.service redis-server.service # Use full service unit names
+systemctl restart nginx.service redis-server.service # Use full service unit names
 
 echo "Installation completed!"
 echo "Use 'mixctl' to manage your CDN."
